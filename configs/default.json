@@ -1,0 +1,28 @@
+{
+  "project_title": "Watch, Retrieve, Respond: An Event-Driven Video Agent for Real-Time Video Understanding",
+  "embedding_dim": 64,
+  "window_size": 3,
+  "sampling_fps": 1.0,
+  "debug": true,
+  "backend": {
+    "type": "mock"
+  },
+  "cache": {
+    "max_events": 32,
+    "top_k": 4,
+    "write_threshold": 0.30,
+    "novelty_threshold": 0.18,
+    "merge_threshold": 0.82
+  },
+  "controller": {
+    "policy": "heuristic",
+    "checkpoint_path": null,
+    "retrieve_threshold": 0.28,
+    "respond_threshold": 0.48,
+    "proactive_threshold": 0.56,
+    "improvement_margin": 0.04,
+    "stability_confidence": 0.40,
+    "min_stable_steps": 1,
+    "max_wait_steps": 12
+  }
+}

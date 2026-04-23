@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wrr"
+version = "0.1.0"
+description = "Watch, Retrieve, Respond: An Event-Driven Video Agent for Real-Time Video Understanding"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "pillow>=10.0",
+  "tqdm>=4.66",
+  "opencv-python>=4.9",
+  "huggingface_hub>=0.24",
+  "datasets>=2.20",
+  "torch>=2.2",
+  "transformers>=4.49.0",
+  "accelerate>=0.30"
+]
+
+[project.scripts]
+wrr = "wrr.cli:main"
+
+[tool.setuptools]
+
+[tool.setuptools.packages.find]
+include = ["wrr*"]

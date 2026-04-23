@@ -1,0 +1,53 @@
+{
+  "episode_id": "kitchen-demo",
+  "frames": [
+    {
+      "timestamp": 0.0,
+      "caption": "a person enters the kitchen"
+    },
+    {
+      "timestamp": 1.0,
+      "caption": "the person places a red cup on the table"
+    },
+    {
+      "timestamp": 2.0,
+      "caption": "the person chops vegetables on the counter"
+    },
+    {
+      "timestamp": 3.0,
+      "caption": "the person opens the fridge"
+    },
+    {
+      "timestamp": 4.0,
+      "caption": "the person pours milk into the red cup"
+    },
+    {
+      "timestamp": 5.0,
+      "caption": "the person leaves the kitchen"
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "q-live",
+      "timestamp": 1.0,
+      "query_type": "live",
+      "text": "What object is on the table right now?",
+      "target_answer": "red cup"
+    },
+    {
+      "query_id": "q-retro",
+      "timestamp": 3.0,
+      "query_type": "retro",
+      "text": "What color was the cup placed on the table earlier?",
+      "target_answer": "red cup"
+    },
+    {
+      "query_id": "q-pro",
+      "timestamp": 2.0,
+      "query_type": "proactive",
+      "text": "Tell me when the person opens the fridge.",
+      "target_answer": "opens the fridge",
+      "response_window": [3.0, 3.5]
+    }
+  ]
+}

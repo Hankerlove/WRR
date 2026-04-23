@@ -1,0 +1,15 @@
+{
+  "records_field": null,
+  "episode_id": "id",
+  "video_path": "video",
+  "question": "question",
+  "query_time": "query_time",
+  "task": "task",
+  "answer": "answer",
+  "response_start": "response_start",
+  "response_end": "response_end",
+  "options": "options",
+  "gt_index": "gt",
+  "score_mode": "score_mode",
+  "response_mode": "response_mode"
+}
