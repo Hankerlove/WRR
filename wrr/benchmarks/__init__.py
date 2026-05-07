@@ -2,5 +2,6 @@
 
 from .ovo import convert_ovo_annotations
 from .river import convert_river_annotations
+from .streamingbench import convert_streamingbench_annotations
 
-__all__ = ["convert_ovo_annotations", "convert_river_annotations"]
+__all__ = ["convert_ovo_annotations", "convert_river_annotations", "convert_streamingbench_annotations"]

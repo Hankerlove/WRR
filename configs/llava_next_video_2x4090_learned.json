@@ -1,0 +1,46 @@
+{
+  "project_title": "Watch, Retrieve, Respond: An Event-Driven Video Agent for Real-Time Video Understanding",
+  "embedding_dim": 64,
+  "window_size": 4,
+  "sampling_fps": 1.0,
+  "max_frames_per_video": null,
+  "debug": true,
+  "backend": {
+    "type": "llava_next_video",
+    "model_name": "llava-hf/LLaVA-NeXT-Video-7B-hf",
+    "device_map": "balanced",
+    "max_memory": {
+      "0": "22GiB",
+      "1": "22GiB",
+      "cpu": "64GiB"
+    },
+    "low_cpu_mem_usage": true,
+    "torch_dtype": "float16",
+    "num_video_frames": 8,
+    "max_new_tokens": 48,
+    "do_sample": false,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "trust_remote_code": false,
+    "summary_prompt": "Summarize the latest visual content in one short sentence.",
+    "answer_system_prompt": "You are a precise video understanding assistant. Answer using only the evidence visible in the provided video frames and retrieved event summaries."
+  },
+  "cache": {
+    "max_events": 32,
+    "top_k": 4,
+    "write_threshold": 0.30,
+    "novelty_threshold": 0.18,
+    "merge_threshold": 0.82
+  },
+  "controller": {
+    "policy": "learned",
+    "checkpoint_path": "outputs/gates/wrr_gate.pt",
+    "retrieve_threshold": 0.28,
+    "respond_threshold": 0.48,
+    "proactive_threshold": 0.56,
+    "improvement_margin": 0.04,
+    "stability_confidence": 0.40,
+    "min_stable_steps": 1,
+    "max_wait_steps": 12
+  }
+}

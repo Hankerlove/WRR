@@ -2,20 +2,55 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from .media import sample_frame_paths, sample_video_frames
 from .types import Episode, FrameObservation, Query, QueryType
 
 
-def load_episode(path: str | Path) -> Episode:
+def load_episode(
+    path: str | Path,
+    max_frames_per_video: int | None = None,
+    sampling_fps: float | None = None,
+) -> Episode:
     raw = json.loads(Path(path).read_text())
-    return episode_from_dict(raw, base_dir=Path(path).resolve().parent)
+    return episode_from_dict(
+        raw,
+        base_dir=Path(path).resolve().parent,
+        max_frames_per_video=max_frames_per_video,
+        sampling_fps=sampling_fps,
+    )
 
 
-def load_manifest(path: str | Path, limit: int | None = None, metadata_only: bool = False) -> list[Episode]:
+def load_manifest(
+    path: str | Path,
+    limit: int | None = None,
+    metadata_only: bool = False,
+    max_frames_per_video: int | None = None,
+    sampling_fps: float | None = None,
+    skip_episode_ids: set[str] | None = None,
+) -> list[Episode]:
+    return list(
+        iter_manifest(
+            path,
+            limit=limit,
+            metadata_only=metadata_only,
+            max_frames_per_video=max_frames_per_video,
+            sampling_fps=sampling_fps,
+            skip_episode_ids=skip_episode_ids,
+        )
+    )
+
+
+def iter_manifest(
+    path: str | Path,
+    limit: int | None = None,
+    metadata_only: bool = False,
+    max_frames_per_video: int | None = None,
+    sampling_fps: float | None = None,
+    skip_episode_ids: set[str] | None = None,
+) -> Iterator[Episode]:
     manifest_path = Path(path)
-    episodes: list[Episode] = []
     with manifest_path.open() as handle:
         for idx, line in enumerate(handle):
             if limit is not None and idx >= limit:
@@ -24,8 +59,15 @@ def load_manifest(path: str | Path, limit: int | None = None, metadata_only: boo
             if not line:
                 continue
             raw = json.loads(line)
-            episodes.append(episode_from_dict(raw, base_dir=manifest_path.resolve().parent, metadata_only=metadata_only))
-    return episodes
+            if skip_episode_ids is not None and str(raw["episode_id"]) in skip_episode_ids:
+                continue
+            yield episode_from_dict(
+                raw,
+                base_dir=manifest_path.resolve().parent,
+                metadata_only=metadata_only,
+                max_frames_per_video=max_frames_per_video,
+                sampling_fps=sampling_fps,
+            )
 
 
 def save_manifest(path: str | Path, episodes: Iterable[dict]) -> None:
@@ -36,8 +78,20 @@ def save_manifest(path: str | Path, episodes: Iterable[dict]) -> None:
             handle.write(json.dumps(episode, ensure_ascii=True) + "\n")
 
 
-def episode_from_dict(raw: dict, base_dir: Path | None = None, metadata_only: bool = False) -> Episode:
-    frames = _load_frames(raw, base_dir=base_dir, metadata_only=metadata_only)
+def episode_from_dict(
+    raw: dict,
+    base_dir: Path | None = None,
+    metadata_only: bool = False,
+    max_frames_per_video: int | None = None,
+    sampling_fps: float | None = None,
+) -> Episode:
+    frames = _load_frames(
+        raw,
+        base_dir=base_dir,
+        metadata_only=metadata_only,
+        max_frames_per_video=max_frames_per_video,
+        sampling_fps=sampling_fps,
+    )
     queries = [
         Query(
             query_id=query["query_id"],
@@ -74,7 +128,13 @@ def _maybe_to_string(value: object) -> str | None:
     return str(value)
 
 
-def _load_frames(raw: dict, base_dir: Path | None, metadata_only: bool = False) -> list[FrameObservation]:
+def _load_frames(
+    raw: dict,
+    base_dir: Path | None,
+    metadata_only: bool = False,
+    max_frames_per_video: int | None = None,
+    sampling_fps: float | None = None,
+) -> list[FrameObservation]:
     if metadata_only:
         return []
     if "frames" in raw:
@@ -108,8 +168,8 @@ def _load_frames(raw: dict, base_dir: Path | None, metadata_only: bool = False) 
         video_path = _resolve_relative_path(raw["video_path"], base_dir)
         return sample_video_frames(
             video_path=video_path,
-            sampling_fps=float(raw.get("sampling_fps", 1.0)),
-            max_frames=raw.get("max_frames"),
+            sampling_fps=float(sampling_fps if sampling_fps is not None else raw.get("sampling_fps", 1.0)),
+            max_frames=raw.get("max_frames", max_frames_per_video),
             start_time=float(raw.get("start_time", 0.0)),
             end_time=raw.get("end_time"),
         )

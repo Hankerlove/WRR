@@ -206,10 +206,11 @@ class LlavaNextVideoBackend(BaseVideoBackend):
             generate_kwargs["temperature"] = self.config.temperature
             generate_kwargs["top_p"] = self.config.top_p
 
-        outputs = self._model.generate(
-            **inputs,
-            **generate_kwargs,
-        )
+        with torch.inference_mode():
+            outputs = self._model.generate(
+                **inputs,
+                **generate_kwargs,
+            )
         generated_tokens = outputs.sequences[:, inputs["input_ids"].shape[1] :]
         decoded = self._processor.batch_decode(
             generated_tokens,
@@ -242,11 +243,17 @@ class LlavaNextVideoBackend(BaseVideoBackend):
             ) from exc
 
         torch_dtype = getattr(torch, self.config.torch_dtype, torch.float16)
+        load_kwargs = {
+            "torch_dtype": torch_dtype,
+            "device_map": self.config.device_map,
+            "trust_remote_code": self.config.trust_remote_code,
+            "low_cpu_mem_usage": self.config.low_cpu_mem_usage,
+        }
+        if self.config.max_memory:
+            load_kwargs["max_memory"] = _normalize_max_memory(self.config.max_memory)
         self._model = LlavaNextVideoForConditionalGeneration.from_pretrained(
             self.model_name,
-            torch_dtype=torch_dtype,
-            device_map=self.config.device_map,
-            trust_remote_code=self.config.trust_remote_code,
+            **load_kwargs,
         )
         self._model.eval()
         self._processor = LlavaNextVideoProcessor.from_pretrained(
@@ -284,3 +291,11 @@ def build_backend(config: AgentConfig) -> BaseVideoBackend:
     if backend_type == "llava_next_video":
         return LlavaNextVideoBackend(config.backend, config.embedding_dim)
     raise ValueError(f"Unsupported backend type: {config.backend.type}")
+
+
+def _normalize_max_memory(max_memory: dict[str, str]) -> dict[int | str, str]:
+    normalized: dict[int | str, str] = {}
+    for device, limit in max_memory.items():
+        key: int | str = int(device) if device.isdigit() else device
+        normalized[key] = limit
+    return normalized

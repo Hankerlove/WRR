@@ -190,6 +190,103 @@ def score_river(episodes: list[Episode], run_output: dict) -> BenchmarkScoreRepo
     return BenchmarkScoreReport(benchmark="river", metrics=metrics, breakdown=breakdown, text="\n".join(lines))
 
 
+def score_streamingbench(episodes: list[Episode], run_output: dict) -> BenchmarkScoreReport:
+    responses = extract_final_responses(run_output)
+    category_scores: dict[str, list[float]] = {
+        "real_time_visual_understanding": [],
+        "omni_source_understanding": [],
+        "contextual_understanding": [],
+        "sequential_question_answering": [],
+    }
+    proactive_timing: dict[str, list[float]] = {
+        "proactive_le_1s": [],
+        "proactive_le_2s": [],
+        "proactive_le_5s": [],
+    }
+    proactive_content: list[float] = []
+    task_accuracy: dict[str, list[float]] = {}
+
+    for episode in episodes:
+        episode_responses = responses.get(episode.episode_id, {})
+        for query in episode.queries:
+            record = episode_responses.get(query.query_id)
+            response = record["answer"] if record is not None else None
+            response_time = float(record["timestamp"]) if record is not None else None
+            category = _normalize_streamingbench_category(query.metadata.get("subset"))
+            task_name = str(query.metadata.get("task", category))
+            correct = 1.0 if answer_matches_query(response, query) else 0.0
+            task_accuracy.setdefault(task_name, []).append(correct)
+
+            if category == "proactive_output":
+                proactive_content.append(correct)
+                for tolerance in (1.0, 2.0, 5.0):
+                    proactive_timing[f"proactive_le_{int(tolerance)}s"].append(
+                        1.0 if correct and _streamingbench_proactive_hit(response_time, query.response_window, tolerance) else 0.0
+                    )
+                continue
+
+            category_scores.setdefault(category, []).append(correct)
+
+    metric_values = {key: _mean_percent(values) for key, values in category_scores.items() if values}
+    proactive_metrics = {key: _mean_percent(values) for key, values in proactive_timing.items() if values}
+    if proactive_content:
+        proactive_metrics["proactive_content_acc"] = _mean_percent(proactive_content)
+    main_avg = _mean([value for value in metric_values.values() if value >= 0])
+    proactive_avg = _mean(
+        [value for key, value in proactive_metrics.items() if key != "proactive_content_acc" and value >= 0]
+    )
+
+    lines = [
+        "StreamingBench Evaluation",
+        "Evaluate Main Benchmark...",
+    ]
+    labels = {
+        "real_time_visual_understanding": "Real-Time Visual Understanding",
+        "omni_source_understanding": "Omni-Source Understanding",
+        "contextual_understanding": "Contextual Understanding",
+        "sequential_question_answering": "Sequential Question Answering",
+    }
+    for key in (
+        "real_time_visual_understanding",
+        "omni_source_understanding",
+        "contextual_understanding",
+        "sequential_question_answering",
+    ):
+        if key in metric_values:
+            lines.append(f"{labels[key]}: {metric_values[key]:.2f}")
+    lines.append(f"Main Avg.: {_format_metric(main_avg)}")
+    if proactive_metrics:
+        lines.append("")
+        lines.append("Evaluate Proactive Output...")
+        if "proactive_content_acc" in proactive_metrics:
+            lines.append(f"Content Acc: {proactive_metrics['proactive_content_acc']:.2f}")
+        proactive_labels = {
+            "proactive_le_1s": "<= 1s",
+            "proactive_le_2s": "<= 2s",
+            "proactive_le_5s": "<= 5s",
+        }
+        for key in ("proactive_le_1s", "proactive_le_2s", "proactive_le_5s"):
+            if key in proactive_metrics:
+                lines.append(f"{proactive_labels[key]}: {proactive_metrics[key]:.2f}")
+        lines.append(f"Proactive Avg.: {_format_metric(proactive_avg)}")
+
+    metrics = {
+        **metric_values,
+        **proactive_metrics,
+        "main_avg": main_avg,
+        "proactive_avg": proactive_avg,
+    }
+    breakdown = {
+        "by_task_accuracy": {task: _mean_percent(values) for task, values in task_accuracy.items()},
+    }
+    return BenchmarkScoreReport(
+        benchmark="streamingbench",
+        metrics=metrics,
+        breakdown=breakdown,
+        text="\n".join(lines),
+    )
+
+
 def _group_task_scores(task_scores: dict[str, list[float]], tasks: set[str]) -> dict[str, float]:
     return {task: _mean_percent(task_scores[task]) for task in sorted(tasks) if task_scores.get(task)}
 
@@ -227,6 +324,34 @@ def _river_loc_score(response_time: float | None, response_window: tuple[float, 
     slack = max(end - start, 1.0)
     delay = response_time - end
     return max(0.0, 1.0 - delay / slack)
+
+
+def _streamingbench_proactive_hit(
+    response_time: float | None,
+    response_window: tuple[float, float] | None,
+    tolerance: float,
+) -> bool:
+    if response_time is None:
+        return False
+    target_time = response_window[0] if response_window is not None else 0.0
+    if response_time < target_time:
+        return False
+    return response_time - target_time <= tolerance
+
+
+def _normalize_streamingbench_category(raw_value: object) -> str:
+    text = str(raw_value or "").strip().lower()
+    text = text.replace("-", "_").replace(" ", "_")
+    text = re.sub(r"_+", "_", text).strip("_")
+    alias_map = {
+        "real_time_visual_understanding": "real_time_visual_understanding",
+        "realtime_visual_understanding": "real_time_visual_understanding",
+        "omni_source_understanding": "omni_source_understanding",
+        "contextual_understanding": "contextual_understanding",
+        "sequential_question_answering": "sequential_question_answering",
+        "proactive_output": "proactive_output",
+    }
+    return alias_map.get(text, text or "real_time_visual_understanding")
 
 
 def _mean_percent(values: list[float]) -> float:

@@ -32,6 +32,8 @@ class BackendConfig:
     type: str = "mock"
     model_name: str = "llava-hf/LLaVA-NeXT-Video-7B-hf"
     device_map: str = "auto"
+    max_memory: dict[str, str] | None = None
+    low_cpu_mem_usage: bool = True
     torch_dtype: str = "float16"
     num_video_frames: int = 8
     max_new_tokens: int = 48

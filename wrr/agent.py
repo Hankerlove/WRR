@@ -24,13 +24,22 @@ class WatchRetrieveRespondAgent:
         self.cache.reset()
         self.active_queries.clear()
 
-    def run_episode(self, episode: Episode) -> EpisodeResult:
+    def run_episode(self, episode: Episode, show_progress: bool = False) -> EpisodeResult:
         self.reset()
         decisions: list[DecisionRecord] = []
         pending_queries = sorted(episode.queries, key=lambda query: query.timestamp)
         query_idx = 0
 
-        for frame in sorted(episode.frames, key=lambda item: item.timestamp):
+        frames = sorted(episode.frames, key=lambda item: item.timestamp)
+        if show_progress:
+            try:
+                from tqdm import tqdm
+            except ImportError:
+                pass
+            else:
+                frames = tqdm(frames, desc=f"{episode.episode_id} frames", leave=False)
+
+        for frame in frames:
             self.observe(frame)
             while query_idx < len(pending_queries) and pending_queries[query_idx].timestamp <= frame.timestamp:
                 self.register_query(pending_queries[query_idx])

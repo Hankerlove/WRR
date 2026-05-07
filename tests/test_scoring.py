@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from wrr.data import load_manifest, save_manifest
-from wrr.scoring import score_ovo, score_river
+from wrr.scoring import score_ovo, score_river, score_streamingbench
 
 
 class BenchmarkScoringTest(unittest.TestCase):
@@ -163,6 +163,65 @@ class BenchmarkScoringTest(unittest.TestCase):
             self.assertIn("Instant-Loc", report.text)
             self.assertIn("Retro Avg.", report.text)
             self.assertGreaterEqual(report.metrics["overall_avg"], 0.0)
+
+    def test_score_streamingbench_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            manifest_path = root / "streamingbench_manifest.jsonl"
+            save_manifest(
+                manifest_path,
+                [
+                    {
+                        "episode_id": "stream-video-1",
+                        "frames": [{"timestamp": 0.0, "caption": "cup on table"}],
+                        "queries": [
+                            {
+                                "query_id": "q1",
+                                "text": "What is on the table?",
+                                "timestamp": 5.0,
+                                "query_type": "live",
+                                "target_answer": "A",
+                                "response_window": [5.0, 6.0],
+                                "metadata": {
+                                    "benchmark": "streamingbench",
+                                    "subset": "real_time_visual_understanding",
+                                    "task": "Object Tracking",
+                                    "accepted_answers": ["A", "cup", "A. cup"],
+                                },
+                            },
+                            {
+                                "query_id": "q2",
+                                "text": "Tell me when the plate appears.",
+                                "timestamp": 0.0,
+                                "query_type": "proactive",
+                                "target_answer": "B",
+                                "response_window": [12.0, 13.0],
+                                "metadata": {
+                                    "benchmark": "streamingbench",
+                                    "subset": "proactive_output",
+                                    "task": "Proactive Output",
+                                    "accepted_answers": ["B", "plate", "B. plate"],
+                                },
+                            },
+                        ],
+                        "metadata": {"benchmark": "streamingbench"},
+                    }
+                ],
+            )
+            episodes = load_manifest(manifest_path)
+            run_output = {
+                "decisions": {
+                    "stream-video-1": [
+                        {"query_id": "q1", "action": "RESPOND", "answer": "cup", "timestamp": 5.1},
+                        {"query_id": "q2", "action": "RESPOND", "answer": "plate", "timestamp": 12.8},
+                    ]
+                }
+            }
+            report = score_streamingbench(episodes, run_output)
+            self.assertIn("StreamingBench Evaluation", report.text)
+            self.assertIn("Main Avg.", report.text)
+            self.assertIn("Proactive Avg.", report.text)
+            self.assertGreaterEqual(report.metrics["main_avg"], 0.0)
 
 
 if __name__ == "__main__":

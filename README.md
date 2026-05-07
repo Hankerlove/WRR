@@ -14,7 +14,7 @@ This repository is built around a **usable research codebase** rather than a pap
 - a real open-source VLM backend based on `llava-hf/LLaVA-NeXT-Video-7B-hf`,
 - local video sampling from `.mp4`,
 - manifest-based dataset loading,
-- OVO-Bench and RIVER manifest preparation commands,
+- OVO-Bench, RIVER, and StreamingBench manifest preparation commands,
 - a one-stage controller-gate training path.
 
 ## Project Layout
@@ -146,6 +146,20 @@ python -m wrr.cli prepare-river \
 
 The RIVER converter is intentionally generic because annotation keys can differ across local releases. If your local annotation schema differs, edit `configs/river_field_map.example.json`.
 
+### StreamingBench
+
+Convert StreamingBench annotations into WRR's internal manifest format:
+
+```bash
+python -m wrr.cli prepare-streamingbench \
+  --annotations /path/to/StreamingBench/annotations_or_csv_dir \
+  --video-root /path/to/StreamingBench/data \
+  --output data/streamingbench_manifest.jsonl \
+  --sampling-fps 1.0
+```
+
+`prepare-streamingbench` accepts a single `.csv` / `.json` / `.jsonl` annotation file or a directory that contains multiple annotation files. Video resolution is heuristic and recursive: if the annotation does not include a usable video filename, WRR will search `--video-root` for files such as `sample_12.mp4`.
+
 ## Training the Controller Gate
 
 Train the lightweight learned gate on a prepared manifest:
@@ -186,12 +200,18 @@ python -m wrr.cli score-river \
   --run-output outputs/river_eval.json
 ```
 
-`run-manifest --score-mode auto` will automatically print OVO-style or RIVER-style reports when the manifest metadata contains a consistent benchmark name.
+```bash
+python -m wrr.cli score-streamingbench \
+  --manifest data/streamingbench_manifest.jsonl \
+  --run-output outputs/streamingbench_eval.json
+```
+
+`run-manifest --score-mode auto` will automatically print OVO-style, RIVER-style, or StreamingBench-style reports when the manifest metadata contains a consistent benchmark name.
 
 ## Recommended Server Workflow
 
 1. Install the package with `python -m pip install -e .`
-2. Prepare a benchmark manifest with `prepare-ovo` or `prepare-river`
+2. Prepare a benchmark manifest with `prepare-ovo`, `prepare-river`, or `prepare-streamingbench`
 3. Run the heuristic system first with `run-manifest --score-mode auto`
 4. Train the lightweight gate with `train-gate`
 5. Re-run evaluation with `llava_next_video_learned.json`
